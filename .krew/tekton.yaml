@@ -1,0 +1,69 @@
+apiVersion: krew.googlecontainertools.github.com/v1alpha2
+kind: Plugin
+metadata:
+  name: tekton
+spec:
+  version: v0.1.0
+  platforms:
+    - bin: tekton
+      uri: https://github.com/corneliusweig/rakkess/releases/download/v0.1.0/tekton-Linux-amd64-v0.1.0.tar.gz
+      sha256:
+      files:
+        - from: LICENSE
+          to: .
+        - from: README.md
+          to: .
+        - from: tekton
+          to: .
+      selector:
+        matchLabels:
+          os: linux
+          arch: amd64
+    - bin: tekton
+      uri: https://github.com/corneliusweig/rakkess/releases/download/v0.1.0/tekton-Darwin-amd64-v0.1.0.tar.gz
+      sha256:
+      files:
+        - from: LICENSE
+          to: .
+        - from: README.md
+          to: .
+        - from: tekton
+          to: .
+      selector:
+        matchLabels:
+          os: darwin
+          arch: amd64
+    - bin: tekton
+      uri: https://github.com/corneliusweig/rakkess/releases/download/v0.1.0/tekton-Darwin-arm64-v0.1.0.tar.gz
+      sha256:
+      files:
+        - from: LICENSE
+          to: .
+        - from: README.md
+          to: .
+        - from: tekton
+          to: .
+      selector:
+        matchLabels:
+          os: darwin
+          arch: arm64
+    - bin: tekton.exe
+      uri: https://github.com/corneliusweig/rakkess/releases/download/v0.1.0/tekton-Windows-amd64-v0.1.0.zip
+      sha256:
+      files:
+        - from: LICENSE
+          to: .
+        - from: README.md
+          to: .
+        - from: tekton.exe
+          to: .
+      selector:
+        matchLabels:
+          os: windows
+          arch: amd64
+  homepage: https://github.com/sayan-biswas/kubectl-tekton
+  shortDescription: Get tekton resources and logs from tekton results server
+  description: |
+    This plugin is used to fetch tekton resources and logs from tekton results server.
+  caveats: |
+    Currently under development.
