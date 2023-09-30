@@ -3,6 +3,11 @@ kubectl-tekton is a plugin for kubectl CLI for fetching tekton resources from te
 
 ## Installation
 
+Easiest way to install the plugin is using Krew plugin manager.
+```shell
+kubectl krew install --manifest-url https://raw.githubusercontent.com/sayan-biswas/kubectl-tekton/main/.krew.yaml
+```
+
 ## Usage
 
 ### Configuration

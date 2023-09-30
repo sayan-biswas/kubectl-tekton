@@ -1,0 +1,67 @@
+apiVersion: krew.googlecontainertools.github.com/v1alpha2
+kind: Plugin
+metadata:
+  name: tekton
+spec:
+  version: v0.1.0
+  homepage: https://github.com/sayan-biswas/kubectl-tekton
+  shortDescription: Get tekton resources from tekton results server
+  description: |
+    This plugin is used to fetch tekton resources and logs from tekton results server.
+  caveats: |
+    Currently under development.
+  platforms:
+    - bin: tekton
+      uri: https://github.com/sayan-biswas/kubectl-tekton/releases/download/v0.1.0/tekton-Linux-amd64-0.1.0.tar.gz
+      sha256: a73564bc067847a2bbf71b163337b9af6d1c4a26f3d255af055a80385af9d624
+      files:
+        - from: LICENSE
+          to: .
+        - from: README.md
+          to: .
+        - from: tekton
+          to: .
+      selector:
+        matchLabels:
+          os: linux
+          arch: amd64
+    - bin: tekton
+      uri: https://github.com/sayan-biswas/kubectl-tekton/releases/download/v0.1.0/tekton-Darwin-amd64-0.1.0.tar.gz
+      sha256: 018c94bf8988db9be1dc7f0f07b66009003f656c18c73be0ccbc2332173b9d2d
+      files:
+        - from: LICENSE
+          to: .
+        - from: README.md
+          to: .
+        - from: tekton
+          to: .
+      selector:
+        matchLabels:
+          os: darwin
+          arch: amd64
+    - bin: tekton
+      uri: https://github.com/sayan-biswas/kubectl-tekton/releases/download/v0.1.0/tekton-Darwin-arm64-0.1.0.tar.gz
+      sha256: 5e6afcef2a17b50910805d2fdcaa7da569e3363a27273ae19f1176415b8cc611
+      files:
+        - from: LICENSE
+          to: .
+        - from: tekton
+          to: .
+      selector:
+        matchLabels:
+          os: darwin
+          arch: arm64
+    - bin: tekton.exe
+      uri: https://github.com/sayan-biswas/kubectl-tekton/releases/download/v0.1.0/tekton-Windows-amd64-0.1.0.zip
+      sha256: ab4ebcbaa50b50e4c612eb08cff4e32e58b7b7190853262027869c15dd8d56b8
+      files:
+        - from: LICENSE
+          to: .
+        - from: README.md
+          to: .
+        - from: tekton.exe
+          to: .
+      selector:
+        matchLabels:
+          os: windows
+          arch: amd64
