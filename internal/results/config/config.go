@@ -2,10 +2,9 @@ package config
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/AlecAivazis/survey/v2"
+	jsoniter "github.com/json-iterator/go"
 	v1 "github.com/openshift/api/route/v1"
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 	"github.com/sayan-biswas/kubectl-tekton/internal/results/client"
@@ -16,6 +15,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/transport"
+	"k8s.io/kubectl/pkg/cmd/util"
 	"reflect"
 	"strconv"
 	"strings"
@@ -23,19 +23,18 @@ import (
 )
 
 type Config interface {
-	Get() *client.Options
+	Get() *client.Config
 	RawConfig() runtime.Object
-	Persist() error
-	Set(kv map[string]string) error
+	Set(data map[string]*string, prompt bool) error
 	Reset() error
 }
 
 type config struct {
-	ConfigAccess  clientcmd.ConfigAccess
-	APIConfig     *api.Config
-	RESTConfig    *rest.Config
-	ClientOptions *client.Options
-	Extension     *Extension
+	ConfigAccess clientcmd.ConfigAccess
+	APIConfig    *api.Config
+	RESTConfig   *rest.Config
+	ClientConfig *client.Config
+	Extension    *Extension
 }
 
 const (
@@ -43,65 +42,45 @@ const (
 	ExtensionName string = "tekton-results"
 )
 
-func NewConfig() (Config, error) {
-	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		clientcmd.NewDefaultClientConfigLoadingRules(),
-		&clientcmd.ConfigOverrides{},
-	)
+func NewConfig(factory util.Factory) (Config, error) {
+	cc := factory.ToRawKubeConfigLoader()
 
-	c := new(config)
-	c.ConfigAccess = clientConfig.ConfigAccess()
-	rawConfig, err := clientConfig.RawConfig()
+	ca := cc.ConfigAccess()
+
+	ac, err := cc.RawConfig()
 	if err != nil {
 		return nil, err
 	}
-	c.APIConfig = &rawConfig
 
-	restConfig, err := clientConfig.ClientConfig()
+	rc, err := cc.ClientConfig()
 	if err != nil {
 		return nil, err
 	}
-	c.RESTConfig = restConfig
 
-	c.ClientOptions = new(client.Options)
-	c.Extension = new(Extension)
-	c.SetVersion()
-
-	// Config defaults
-	c.ClientOptions.Timeout = time.Second * 10
-	c.ClientOptions.TLSConfig = &transport.TLSConfig{
-		Insecure: true,
-	}
-	ic := transport.ImpersonationConfig(c.RESTConfig.Impersonate)
-	c.ClientOptions.ImpersonationConfig = &ic
-
-	// Check current context is set
-	currentContext := c.APIConfig.Contexts[c.APIConfig.CurrentContext]
-	if currentContext == nil {
-		return nil, errors.New("current context not set in kubeconfig")
+	c := &config{
+		ConfigAccess: ca,
+		APIConfig:    &ac,
+		RESTConfig:   rc,
 	}
 
-	// Load config from extension
-	extension := currentContext.Extensions[ExtensionName]
-	if extension != nil {
-		unknown := extension.(*runtime.Unknown)
-		if err = json.Unmarshal(unknown.Raw, c.Extension); err != nil {
-			return nil, err
-		}
-		if err = json.Unmarshal(unknown.Raw, c.ClientOptions); err != nil {
-			return nil, err
-		}
-	} else {
-		if err = c.Set(nil); err != nil {
+	if err := c.LoadExtension(); err != nil {
+		return nil, err
+	}
+
+	if c.Extension == nil {
+		c.SetVersion()
+		if err := c.Set(nil, true); err != nil {
 			return nil, err
 		}
 	}
+
+	c.LoadClientConfig()
 
 	return c, nil
 }
 
-func (c *config) Get() *client.Options {
-	return c.ClientOptions
+func (c *config) Get() *client.Config {
+	return c.ClientConfig
 }
 
 func (c *config) RawConfig() runtime.Object {
@@ -111,7 +90,17 @@ func (c *config) RawConfig() runtime.Object {
 func (c *config) Reset() error {
 	c.Extension = new(Extension)
 	c.SetVersion()
-	return c.Set(nil)
+	return c.Persist()
+}
+
+func (c *config) LoadExtension() error {
+	cc := c.APIConfig.Contexts[c.APIConfig.CurrentContext]
+	if cc == nil {
+		return errors.New("current context is not set in kubeconfig")
+	}
+	c.Extension = new(Extension)
+	e := cc.Extensions[ExtensionName]
+	return jsoniter.Unmarshal(e.(*runtime.Unknown).Raw, c.Extension)
 }
 
 func (c *config) SetVersion() {
@@ -121,39 +110,106 @@ func (c *config) SetVersion() {
 	}
 }
 
-func (c *config) Set(m map[string]string) error {
+func (c *config) Set(data map[string]*string, prompt bool) error {
 	t := reflect.TypeOf(c.Extension).Elem()
 	v := reflect.ValueOf(c.Extension).Elem()
 	for i := 0; i < t.NumField(); i++ {
 		tf := t.Field(i)
-		if input, err := strconv.ParseBool(tf.Tag.Get("prompt")); err != nil || !input {
-			continue
-		}
-
-		name, _, found := strings.Cut(tf.Tag.Get("json"), ",")
-		if !found {
+		name, _, _ := strings.Cut(tf.Tag.Get("json"), ",")
+		if name == "" {
 			continue
 		}
 
 		vf := v.Field(i)
-		if value, ok := m[name]; ok {
-			if value != "" {
-				vf.SetString(value)
+		if _, ok := data[name]; !ok && data != nil {
+			if group, ok := tf.Tag.Lookup("group"); ok {
+				if _, ok := data[group]; !ok {
+					continue
+				}
+			} else {
 				continue
 			}
-			vf.SetZero()
-		} else if m != nil {
+		}
+
+		// get data from prompt in enabled
+		if prompt {
+			if err := c.Prompt(name, vf, c.CallMethod(tf.Name)); err != nil {
+				return err
+			}
 			continue
 		}
 
-		if vf.IsZero() {
-			if err := c.Prompt(tf, vf, c.CallMethod(tf.Name)); err != nil {
-				return err
+		// get data from user input if provided
+		if value, ok := data[name]; ok && value != nil {
+			vf.SetString(*value)
+			continue
+		}
+
+		// get data from suggestion methods if exists
+		switch value := c.CallMethod(tf.Name).(type) {
+		case string:
+			vf.SetString(value)
+		case []string:
+			if len(value) > 0 {
+				vf.SetString(value[0])
 			}
+		default:
+			vf.SetZero()
 		}
 	}
 
 	return c.Persist()
+}
+
+func (c *config) LoadClientConfig() {
+	ic := transport.ImpersonationConfig(c.RESTConfig.Impersonate)
+	c.ClientConfig = &client.Config{
+		ClientType:          client.REST,
+		Host:                c.RESTConfig.Host,
+		ImpersonationConfig: &ic,
+		Timeout:             c.RESTConfig.Timeout,
+		Token:               c.RESTConfig.BearerToken,
+		TLSConfig: &transport.TLSConfig{
+			Insecure:   c.RESTConfig.Insecure,
+			CAFile:     c.RESTConfig.CAFile,
+			CertFile:   c.RESTConfig.CertFile,
+			KeyFile:    c.RESTConfig.KeyFile,
+			ServerName: c.RESTConfig.ServerName,
+		},
+	}
+
+	if c.Extension.Host != "" {
+		c.ClientConfig.Host = c.Extension.Host
+	}
+
+	if c.Extension.Token != "" {
+		c.ClientConfig.Token = c.Extension.Token
+	}
+
+	if d, err := time.ParseDuration(c.Extension.Timeout); err != nil {
+		c.ClientConfig.Timeout = d
+	}
+
+	if c.Extension.Impersonate != "" {
+		c.ClientConfig.ImpersonationConfig = &transport.ImpersonationConfig{
+			UserName: c.Extension.Impersonate,
+			UID:      c.Extension.ImpersonateUID,
+			Groups:   strings.Split(c.Extension.ImpersonateGroups, ","),
+		}
+	}
+
+	if i, err := strconv.ParseBool(c.Extension.InsecureSkipTLSVerify); err == nil {
+		c.ClientConfig.TLSConfig.Insecure = i
+	}
+
+	if c.Extension.CertificateAuthority != "" || c.Extension.ClientCertificate != "" {
+		c.ClientConfig.TLSConfig = &transport.TLSConfig{
+			CAFile:     c.Extension.CertificateAuthority,
+			CertFile:   c.Extension.ClientCertificate,
+			KeyFile:    c.Extension.ClientKey,
+			ServerName: c.Extension.TLSServerName,
+		}
+	}
 }
 
 func (c *config) CallMethod(name string) any {
@@ -172,15 +228,10 @@ func (c *config) Persist() error {
 	return clientcmd.ModifyConfig(c.ConfigAccess, *c.APIConfig, false)
 }
 
-func (c *config) Prompt(field reflect.StructField, value reflect.Value, data any) error {
-	if data == nil {
-		if o, ok := field.Tag.Lookup("options"); ok {
-			data = strings.Split(o, ",")
-		}
-	}
-
+func (c *config) Prompt(name string, value reflect.Value, data any) error {
 	var p survey.Prompt
-	m := fmt.Sprintf("%s : ", field.Name)
+
+	m := name + " : "
 
 	switch d := data.(type) {
 	case string:
@@ -204,6 +255,14 @@ func (c *config) Prompt(field reflect.StructField, value reflect.Value, data any
 
 func (c *config) Token() any {
 	return c.RESTConfig.BearerToken
+}
+
+func (c *config) ClientType() any {
+	return []string{client.REST, client.GRPC}
+}
+
+func (c *config) InsecureSkipTLSVerify() any {
+	return []string{"false", "true"}
 }
 
 func (c *config) Host() any {

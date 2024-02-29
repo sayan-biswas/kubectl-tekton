@@ -7,6 +7,7 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/cli-runtime/pkg/printers"
+	"k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/kubectl/pkg/scheme"
 	"k8s.io/kubectl/pkg/util/i18n"
 	"k8s.io/kubectl/pkg/util/templates"
@@ -17,10 +18,12 @@ type Options struct {
 	PrintFlags  *genericclioptions.PrintFlags
 	PrinterFunc printers.ResourcePrinterFunc
 	IOStreams   *genericiooptions.IOStreams
+	Factory     util.Factory
 	Config      config.Config
 
-	View  bool
-	Reset bool
+	NoPrompt bool
+	Reset    bool
+	View     bool
 }
 
 var (
@@ -42,10 +45,11 @@ var (
 	`)
 )
 
-func Command(s *genericiooptions.IOStreams) *cobra.Command {
+func Command(s *genericiooptions.IOStreams, f util.Factory) *cobra.Command {
 	o := &Options{
 		PrintFlags: genericclioptions.NewPrintFlags("").WithTypeSetter(scheme.Scheme).WithDefaultOutput("yaml"),
 		IOStreams:  s,
+		Factory:    f,
 	}
 
 	c := &cobra.Command{
@@ -58,8 +62,9 @@ func Command(s *genericiooptions.IOStreams) *cobra.Command {
 	}
 
 	o.PrintFlags.AddFlags(c)
-	c.Flags().BoolVarP(&o.View, "view", "", false, "View tekton results config")
+	c.Flags().BoolVarP(&o.NoPrompt, "no-prompt", "", false, "Use prompts")
 	c.Flags().BoolVarP(&o.Reset, "reset", "", false, "Reset tekton results config")
+	c.Flags().BoolVarP(&o.View, "view", "", false, "View tekton results config")
 
 	return c
 }
@@ -77,24 +82,21 @@ func (o *Options) PreRun(_ *cobra.Command, _ []string) error {
 
 // Run performs the execution of 'config View' sub command
 func (o *Options) Run(_ *cobra.Command, args []string) (err error) {
-	o.Config, err = config.NewConfig()
+	o.Config, err = config.NewConfig(o.Factory)
 	if err != nil {
 		return
 	}
 
-	if len(args) > 0 {
-		return o.Config.Set(helper.ParseArgs(args))
-	}
-
-	if o.Reset {
+	switch {
+	case o.View:
+		return o.PrinterFunc(o.Config.RawConfig(), o.IOStreams.Out)
+	case o.Reset:
 		return o.Config.Reset()
+	case len(args) == 0:
+		return o.Config.Set(nil, !o.NoPrompt)
+	case len(args) >= 0:
+		return o.Config.Set(helper.ParseArgs(args), !o.NoPrompt)
+	default:
+		return nil
 	}
-
-	if o.View {
-		err = o.PrinterFunc(o.Config.RawConfig(), o.IOStreams.Out)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }

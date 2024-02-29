@@ -99,7 +99,7 @@ func (o *Options) PreRun(_ *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	c, err := config.NewConfig()
+	c, err := config.NewConfig(o.Factory)
 	if err != nil {
 		return err
 	}

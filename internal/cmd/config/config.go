@@ -8,7 +8,7 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/cli-runtime/pkg/printers"
-	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/kubectl/pkg/cmd/util"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
 
@@ -23,8 +23,8 @@ type Options struct {
 	Reset bool
 }
 
-func Command(s *genericiooptions.IOStreams) *cobra.Command {
-	pathOptions := clientcmd.NewDefaultPathOptions()
+func Command(s *genericiooptions.IOStreams, f util.Factory) *cobra.Command {
+	//pathOptions := clientcmd.NewDefaultPathOptions()
 	c := &cobra.Command{
 		Use:               "config",
 		Aliases:           []string{"config"},
@@ -36,9 +36,9 @@ func Command(s *genericiooptions.IOStreams) *cobra.Command {
 		Run:               cmdutil.DefaultSubCommandRun(s.ErrOut),
 	}
 
-	c.PersistentFlags().StringVar(&pathOptions.LoadingRules.ExplicitPath, pathOptions.ExplicitFileFlag, pathOptions.LoadingRules.ExplicitPath, "use a particular kubeconfig file")
+	//c.PersistentFlags().StringVar(&pathOptions.LoadingRules.ExplicitPath, pathOptions.ExplicitFileFlag, pathOptions.LoadingRules.ExplicitPath, "use a particular kubeconfig file")
 
-	c.AddCommand(results.Command(s))
+	c.AddCommand(results.Command(s, f))
 
 	return c
 }

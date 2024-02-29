@@ -3,14 +3,17 @@ package client
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	resultsv1alpha2 "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/client-go/transport"
 	"net/url"
+	"os"
 )
 
 type GRPCClient struct {
@@ -19,31 +22,11 @@ type GRPCClient struct {
 }
 
 // NewGRPCClient creates a new gRPC client.
-func NewGRPCClient(o *Options) (Client, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), o.Timeout)
+func NewGRPCClient(c *Config) (Client, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
-	callOptions := []grpc.CallOption{
-		grpc.PerRPCCredentials(&customCredentials{
-			TokenSource: transport.NewCachedTokenSource(oauth2.StaticTokenSource(&oauth2.Token{
-				AccessToken: o.Token,
-			})),
-			ImpersonationConfig: o.ImpersonationConfig,
-		}),
-	}
-
-	dialOptions := []grpc.DialOption{
-		//grpc.WithBlock(),
-		grpc.WithDefaultCallOptions(callOptions...),
-	}
-
-	if o.TLSConfig.Insecure {
-		dialOptions = append(dialOptions,
-			grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})),
-		)
-	}
-
-	u, err := url.Parse(o.Host)
+	u, err := url.Parse(c.Host)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +42,31 @@ func NewGRPCClient(o *Options) (Client, error) {
 		}
 	}
 
-	clientConn, err := grpc.DialContext(ctx, u.Host, dialOptions...)
+	tc := insecure.NewCredentials()
+	if c.TLSConfig != nil && u.Scheme == "https" {
+		tls, err := c.ClientTLSConfig()
+		if err != nil {
+			return nil, err
+		}
+		tc = credentials.NewTLS(tls)
+	}
+
+	cos := []grpc.CallOption{
+		grpc.PerRPCCredentials(&Credentials{
+			TokenSource: transport.NewCachedTokenSource(oauth2.StaticTokenSource(&oauth2.Token{
+				AccessToken: c.Token,
+			})),
+			ImpersonationConfig:   c.ImpersonationConfig,
+			SkipTransportSecurity: u.Scheme != "https",
+		}),
+	}
+
+	dos := []grpc.DialOption{
+		grpc.WithDefaultCallOptions(cos...),
+		grpc.WithTransportCredentials(tc),
+	}
+
+	clientConn, err := grpc.DialContext(ctx, u.Host, dos...)
 	if err != nil {
 		return nil, err
 	}
@@ -70,20 +77,50 @@ func NewGRPCClient(o *Options) (Client, error) {
 	}, nil
 }
 
-// customCredentials supplies PerRPCCredentials from a Token Source and Impersonation config.
-type customCredentials struct {
+func (c *Config) ClientTLSConfig() (*tls.Config, error) {
+	tc := &tls.Config{
+		InsecureSkipVerify: c.TLSConfig.Insecure,
+	}
+
+	if c.TLSConfig.CertFile != "" && c.TLSConfig.KeyFile != "" {
+		keyPair, err := tls.LoadX509KeyPair(c.TLSConfig.CertFile, c.TLSConfig.KeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("could not load client key pair: %v", err)
+		}
+		tc.Certificates = []tls.Certificate{keyPair}
+	} else if c.TLSConfig.CAFile != "" {
+		cp := x509.NewCertPool()
+		ca, err := os.ReadFile(c.TLSConfig.CAFile)
+		if err != nil {
+			return nil, fmt.Errorf("could not read CA certificate: %v", err)
+		}
+		if ok := cp.AppendCertsFromPEM(ca); !ok {
+			return nil, errors.New("failed to append ca certs")
+		}
+		tc.RootCAs = cp
+	}
+	return tc, nil
+}
+
+// Credentials supplies PerRPCCredentials from a Token Source and Impersonation config.
+type Credentials struct {
 	oauth2.TokenSource
 	*transport.ImpersonationConfig
+	SkipTransportSecurity bool
 }
 
 // GetRequestMetadata gets the request metadata as a map from a Custom.
-func (cc *customCredentials) GetRequestMetadata(ctx context.Context, _ ...string) (map[string]string, error) { //nolint:revive
+func (c *Credentials) GetRequestMetadata(ctx context.Context, _ ...string) (map[string]string, error) { //nolint:revive
+	sl := credentials.PrivacyAndIntegrity
+	if c.SkipTransportSecurity {
+		sl = credentials.NoSecurity
+	}
 	ri, _ := credentials.RequestInfoFromContext(ctx)
-	if err := credentials.CheckSecurityLevel(ri.AuthInfo, credentials.PrivacyAndIntegrity); err != nil {
+	if err := credentials.CheckSecurityLevel(ri.AuthInfo, sl); err != nil {
 		return nil, fmt.Errorf("unable to transfer TokenSource PerRPCCredentials: %v", err)
 	}
 
-	token, err := cc.Token()
+	token, err := c.Token()
 	if err != nil {
 		return nil, err
 	}
@@ -91,16 +128,16 @@ func (cc *customCredentials) GetRequestMetadata(ctx context.Context, _ ...string
 	m := map[string]string{
 		"authorization": token.Type() + " " + token.AccessToken,
 	}
-	if cc.UserName != "" {
-		m[transport.ImpersonateUserHeader] = cc.UserName
+	if c.UserName != "" {
+		m[transport.ImpersonateUserHeader] = c.UserName
 	}
-	if cc.UID != "" {
-		m[transport.ImpersonateUIDHeader] = cc.UID
+	if c.UID != "" {
+		m[transport.ImpersonateUIDHeader] = c.UID
 	}
-	for _, group := range cc.Groups {
+	for _, group := range c.Groups {
 		m[transport.ImpersonateUIDHeader] = group
 	}
-	for ek, ev := range cc.Extra {
+	for ek, ev := range c.Extra {
 		for _, v := range ev {
 			m[transport.ImpersonateUserExtraHeaderPrefix+unescapeExtraKey(ek)] = v
 		}
@@ -110,8 +147,8 @@ func (cc *customCredentials) GetRequestMetadata(ctx context.Context, _ ...string
 }
 
 // RequireTransportSecurity indicates whether the credentials requires transport security.
-func (cc *customCredentials) RequireTransportSecurity() bool {
-	return true
+func (c *Credentials) RequireTransportSecurity() bool {
+	return !c.SkipTransportSecurity
 }
 
 func unescapeExtraKey(encodedKey string) string {

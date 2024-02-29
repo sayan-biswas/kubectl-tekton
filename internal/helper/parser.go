@@ -73,19 +73,17 @@ func ParseOwnerReferences(s string) []v1.OwnerReference {
 	return ownerReferences
 }
 
-func ParseArgs(args []string) map[string]string {
+func ParseArgs(args []string) map[string]*string {
 	if len(args) == 0 {
 		return nil
 	}
-	m := make(map[string]string)
+	m := make(map[string]*string)
 	for _, arg := range args {
 		arg = strings.ReplaceAll(arg, "\"", "")
-		kv := strings.SplitN(arg, "=", 2)
-		switch len(kv) {
-		case 1:
-			m[kv[0]] = ""
-		case 2:
-			m[kv[0]] = kv[1]
+		if b, a, ok := strings.Cut(arg, "="); ok {
+			m[b] = &a
+		} else {
+			m[b] = nil
 		}
 	}
 	return m

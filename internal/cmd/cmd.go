@@ -29,15 +29,16 @@ func Command() *cobra.Command {
 		WithDeprecatedPasswordFlag().
 		WithDiscoveryBurst(300).
 		WithDiscoveryQPS(50.0)
-	f := util.NewFactory(util.NewMatchVersionFlags(cf))
 
 	cf.AddFlags(c.PersistentFlags())
+
+	f := util.NewFactory(util.NewMatchVersionFlags(cf))
 
 	completion.SetFactoryForCompletion(f)
 	registerFlagCompletionFunc(c, f)
 
 	c.AddCommand(
-		config.Command(ios),
+		config.Command(ios, f),
 		get.Command(ios, f),
 		logs.Command(ios, f),
 		version.Command(ios),

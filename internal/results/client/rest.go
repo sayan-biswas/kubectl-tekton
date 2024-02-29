@@ -3,8 +3,9 @@ package client
 import (
 	"bytes"
 	"context"
-	"errors"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	v1alpha2 "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -26,8 +27,8 @@ type RESTClient struct {
 }
 
 // NewRESTClient creates a new REST client.
-func NewRESTClient(o *Options) (Client, error) {
-	u, err := url.Parse(o.Host)
+func NewRESTClient(c *Config) (Client, error) {
+	u, err := url.Parse(c.Host)
 	if err != nil {
 		return nil, err
 	}
@@ -35,9 +36,9 @@ func NewRESTClient(o *Options) (Client, error) {
 	u.Path = basePath
 
 	rt, err := transport.New(&transport.Config{
-		BearerToken: o.Token,
-		TLS:         *o.TLSConfig,
-		Impersonate: *o.ImpersonationConfig,
+		BearerToken: c.Token,
+		TLS:         *c.TLSConfig,
+		Impersonate: *c.ImpersonationConfig,
 	})
 	if err != nil {
 		return nil, err
@@ -46,7 +47,7 @@ func NewRESTClient(o *Options) (Client, error) {
 	rc := &RESTClient{
 		httpClient: &http.Client{
 			Transport: rt,
-			Timeout:   o.Timeout,
+			Timeout:   c.Timeout,
 		},
 		url: u,
 	}
@@ -136,13 +137,21 @@ func (c *RESTClient) UpdateRecord(_ context.Context, _ *v1alpha2.UpdateRecordReq
 	panic("not implemented")
 }
 
+func (c *RESTClient) GetRecordListSummary(ctx context.Context, _ *v1alpha2.RecordListSummaryRequest, _ ...grpc.CallOption) (*v1alpha2.RecordListSummary, error) {
+	//TODO: implement
+	panic("not implemented")
+}
+
 type logsGetLogClient struct {
 	log *v1alpha2.Log
 	grpc.ClientStream
 }
 
-func (c logsGetLogClient) Recv() (*v1alpha2.Log, error) {
-	return c.log, nil
+func (c logsGetLogClient) Recv() (*httpbody.HttpBody, error) {
+	return &httpbody.HttpBody{
+		ContentType: "text/plain",
+		Data:        c.log.Data,
+	}, nil
 }
 
 func (c *RESTClient) GetLog(ctx context.Context, in *v1alpha2.GetLogRequest, _ ...grpc.CallOption) (v1alpha2.Logs_GetLogClient, error) {
@@ -213,7 +222,10 @@ func (c *RESTClient) send(ctx context.Context, method string, values []string, i
 	}
 
 	if res.StatusCode != http.StatusOK {
-		return nil, errors.New(http.StatusText(res.StatusCode))
+		return nil, &runtime.HTTPStatusError{
+			HTTPStatus: res.StatusCode,
+			Err:        err,
+		}
 	}
 
 	defer res.Body.Close()
