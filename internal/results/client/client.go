@@ -2,16 +2,16 @@ package client
 
 import (
 	"errors"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	resultsv1alpha2 "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	"google.golang.org/grpc/status"
 	"k8s.io/client-go/transport"
 	"time"
 )
 
-type Type string
-
 const (
-	GRPC Type = "GRPC"
-	REST Type = "REST"
+	GRPC = "GRPC"
+	REST = "REST"
 )
 
 type Client interface {
@@ -19,22 +19,42 @@ type Client interface {
 	resultsv1alpha2.ResultsClient
 }
 
-type Options struct {
-	Type                Type
-	TLSConfig           *transport.TLSConfig
+type Config struct {
+	ClientType          string
+	Host                string
 	ImpersonationConfig *transport.ImpersonationConfig
 	Timeout             time.Duration
+	TLSConfig           *transport.TLSConfig
 	Token               string
-	Host                string
 }
 
-func NewClient(o *Options) (Client, error) {
-	switch o.Type {
+func NewClient(c *Config) (Client, error) {
+	c.SetDefault()
+
+	switch c.ClientType {
 	case GRPC:
-		return NewGRPCClient(o)
+		return NewGRPCClient(c)
 	case REST:
-		return NewRESTClient(o)
+		return NewRESTClient(c)
 	default:
 		return nil, errors.New("invalid client type")
 	}
+}
+
+func (c *Config) SetDefault() {
+	if c.ClientType == "" {
+		c.ClientType = REST
+	}
+
+	if c.Timeout == 0 {
+		c.Timeout = time.Minute
+	}
+}
+
+func Status(err error) int {
+	var HTTPStatusError *runtime.HTTPStatusError
+	if errors.As(err, &HTTPStatusError) {
+		return HTTPStatusError.HTTPStatus
+	}
+	return runtime.HTTPStatusFromCode(status.Code(err))
 }

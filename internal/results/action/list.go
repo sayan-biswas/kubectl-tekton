@@ -15,7 +15,7 @@ func List(c client.Client, o *Options) (*unstructured.UnstructuredList, error) {
 		return nil, err
 	}
 
-	rl, err := c.ListRecords(context.Background(), &results.ListRecordsRequest{
+	lrr, err := c.ListRecords(context.Background(), &results.ListRecordsRequest{
 		Parent:    fmt.Sprintf("%s/results/-", o.Namespace),
 		Filter:    o.filter(),
 		OrderBy:   "update_time desc",
@@ -30,11 +30,11 @@ func List(c client.Client, o *Options) (*unstructured.UnstructuredList, error) {
 		Object: map[string]interface{}{
 			"kind":          o.Kind,
 			"apiVersion":    o.APIVersion,
-			"nextPageToken": rl.NextPageToken,
+			"nextPageToken": lrr.NextPageToken,
 		},
 	}
 
-	for _, r := range rl.Records {
+	for _, r := range lrr.Records {
 		d := r.GetData().GetValue()
 		u := new(unstructured.Unstructured)
 		err = json.Unmarshal(d, u)
@@ -45,18 +45,4 @@ func List(c client.Client, o *Options) (*unstructured.UnstructuredList, error) {
 	}
 
 	return ul, nil
-}
-
-func Log(c client.Client, o *Options) ([]byte, error) {
-	lc, err := c.GetLog(context.Background(), &results.GetLogRequest{
-		Name: o.Name,
-	})
-	if err != nil {
-		return nil, err
-	}
-	l, err := lc.Recv()
-	if err != nil {
-		return nil, err
-	}
-	return l.GetData(), nil
 }

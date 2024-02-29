@@ -151,7 +151,7 @@ func (o *Options) PreRun(_ *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	c, err := config.NewConfig()
+	c, err := config.NewConfig(o.Factory)
 	if err != nil {
 		return err
 	}
@@ -244,7 +244,7 @@ func (o *Options) Run(_ *cobra.Command, _ []string) error {
 				"\nNext Page: Press any key to continue, CTRL+ESC to exit!\n\n"); err != nil {
 				return err
 			}
-			if Key(Escape) {
+			if key(Escape) {
 				break
 			}
 		}
@@ -253,7 +253,7 @@ func (o *Options) Run(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-func Key(key byte) bool {
+func key(k byte) bool {
 	s, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
 		return false
@@ -265,5 +265,5 @@ func Key(key byte) bool {
 	if err != nil {
 		return false
 	}
-	return key == b[0]
+	return k == b[0]
 }

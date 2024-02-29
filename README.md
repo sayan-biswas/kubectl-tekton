@@ -15,6 +15,24 @@ kubectl krew install test/tekton
 
 ### Configuration
 
+#### List Of Configurations
+
+| Name                     | Group  | Default | Description                            |
+|--------------------------|--------|---------|----------------------------------------|
+| host                     | client |         | Host address for the client to connect |
+| client-type              | client | REST    | Type of client can be GRPC or REST     |
+| insecure-skip-tls-verify | client | false   | Skip host name verification            |
+| timeout                  | client | 1m      | Client context timeout                 |
+| certificate-authority    | tls    |         | CA file path to use                    |
+| client-certificate       | tls    |         | Certificate file path to use           |
+| client-key               | tls    |         | Key file path to use                   |
+| tls-server-name          | tls    |         | Override hostname for TLS              |
+| token                    | auth   |         | Token to use for authorization         |
+| act-as                   | auth   |         | User ID for impersonation              |
+| act-as-uid               | auth   |         | UID for impersonation                  |
+| act-as-groups            | auth   |         | Groups for impersonation               |
+
+
 Configure tekton results client
 ```shell
 kubectl tekton config results
@@ -25,15 +43,31 @@ Reconfigure tekton results client
 kubectl tekton config results --reset
 ```
 
+To remove a value from config file
+```shell
+kubectl tekton config results token="" --prompt=false
+```
+
 Configure specific properties
 ```shell
 kubectl tekton config results host token
 ```
 
-Non-interactive configuration (no validation)
+Configure can also be called with the `group` name. Only configurations from that `group` will be prompted or configured.
 ```shell
-kubectl tekton config results host="https://localhost:8080" token="test-token"
+kubectl tekton config results client
 ```
+
+Non-interactive configuration (no validation).
+```shell
+kubectl tekton config results host="https://localhost:8080" token="test-token" --prompt="false"
+```
+
+Non-interactive prompt can also use the automated suggestions if the values are not provided
+```shell
+kubectl tekton config results host client-type --prompt="false"
+```
+This is update `host` and `client-type` from default or automated values.
 
 The configuration is stored in kubeconfig context extension. This enables storing multiple tekton results configuration per context.
 
