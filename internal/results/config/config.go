@@ -28,6 +28,7 @@ type Config interface {
 	Persist() error
 	Set(kv map[string]string) error
 	Reset() error
+	Defaults() error
 }
 
 type config struct {
@@ -119,6 +120,18 @@ func (c *config) SetVersion() {
 		APIVersion: "v1alpha1",
 		Kind:       "Client",
 	}
+}
+
+func (c *config) Defaults() error {
+	c.Extension = new(Extension)
+	c.Extension.Type = "REST"
+	hosts := c.Host()
+	for _, h := range hosts.([]string) {
+		c.Extension.Host = h
+		break
+	}
+	c.Extension.Token = c.Token().(string)
+	return c.Persist()
 }
 
 func (c *config) Set(m map[string]string) error {

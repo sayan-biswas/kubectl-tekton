@@ -9,6 +9,22 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+func Delete(c client.Client, recordID, logID, resultID string) error {
+	_, rerr := c.DeleteRecord(context.Background(), &results.DeleteRecordRequest{Name: recordID})
+	if rerr != nil {
+		return rerr
+	}
+	_, lerr := c.DeleteLog(context.Background(), &results.DeleteLogRequest{Name: logID})
+	if lerr != nil {
+		return lerr
+	}
+	_, aerr := c.DeleteResult(context.Background(), &results.DeleteResultRequest{Name: resultID})
+	if aerr != nil {
+		return aerr
+	}
+	return nil
+}
+
 func List(c client.Client, o *Options) (*unstructured.UnstructuredList, error) {
 	err := o.validate()
 	if err != nil {
