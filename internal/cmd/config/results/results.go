@@ -19,8 +19,9 @@ type Options struct {
 	IOStreams   *genericiooptions.IOStreams
 	Config      config.Config
 
-	View  bool
-	Reset bool
+	View     bool
+	Reset    bool
+	Defaults bool
 }
 
 var (
@@ -60,6 +61,7 @@ func Command(s *genericiooptions.IOStreams) *cobra.Command {
 	o.PrintFlags.AddFlags(c)
 	c.Flags().BoolVarP(&o.View, "view", "", false, "View tekton results config")
 	c.Flags().BoolVarP(&o.Reset, "reset", "", false, "Reset tekton results config")
+	c.Flags().BoolVarP(&o.Defaults, "defaults", "", false, "Use predetermined defaults found from the login")
 
 	return c
 }
@@ -80,6 +82,10 @@ func (o *Options) Run(_ *cobra.Command, args []string) (err error) {
 	o.Config, err = config.NewConfig()
 	if err != nil {
 		return
+	}
+
+	if o.Defaults {
+		return o.Config.Defaults()
 	}
 
 	if len(args) > 0 {
