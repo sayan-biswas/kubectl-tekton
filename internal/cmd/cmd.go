@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/sayan-biswas/kubectl-tekton/internal/cmd/config"
+	remove "github.com/sayan-biswas/kubectl-tekton/internal/cmd/delete"
 	"github.com/sayan-biswas/kubectl-tekton/internal/cmd/get"
 	"github.com/sayan-biswas/kubectl-tekton/internal/cmd/logs"
 	"github.com/sayan-biswas/kubectl-tekton/internal/cmd/version"
@@ -41,6 +42,7 @@ func Command() *cobra.Command {
 		config.Command(ios, f),
 		get.Command(ios, f),
 		logs.Command(ios, f),
+		remove.Command(ios, f),
 		version.Command(ios),
 	)
 
