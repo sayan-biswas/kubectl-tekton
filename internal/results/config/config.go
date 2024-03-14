@@ -2,9 +2,9 @@ package config
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/AlecAivazis/survey/v2"
-	jsoniter "github.com/json-iterator/go"
 	v1 "github.com/openshift/api/route/v1"
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 	"github.com/sayan-biswas/kubectl-tekton/internal/results/client"
@@ -100,7 +100,11 @@ func (c *config) LoadExtension() error {
 	}
 	c.Extension = new(Extension)
 	e := cc.Extensions[ExtensionName]
-	return jsoniter.Unmarshal(e.(*runtime.Unknown).Raw, c.Extension)
+	if e != nil {
+		return json.Unmarshal(e.(*runtime.Unknown).Raw, c.Extension)
+	}
+	c.SetVersion()
+	return c.Set(nil, true)
 }
 
 func (c *config) SetVersion() {
