@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"errors"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	v1alpha2 "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/genproto/googleapis/api/httpbody"
@@ -15,44 +16,34 @@ import (
 	"k8s.io/client-go/transport"
 	"net/http"
 	"net/url"
+	"path"
 )
 
 const (
-	basePath = "/apis/results.tekton.dev/v1alpha2/parents"
+	pathPrefix = "parents"
 )
 
 type RESTClient struct {
-	httpClient *http.Client
-	url        *url.URL
+	url    *url.URL
+	client *http.Client
 }
 
 // NewRESTClient creates a new REST client.
 func NewRESTClient(c *Config) (Client, error) {
-	u, err := url.Parse(c.Host)
+	c.URL.Path = path.Join(c.URL.Path, pathPrefix)
+
+	rt, err := transport.New(c.Transport)
 	if err != nil {
 		return nil, err
 	}
 
-	u.Path = basePath
-
-	rt, err := transport.New(&transport.Config{
-		BearerToken: c.Token,
-		TLS:         *c.TLSConfig,
-		Impersonate: *c.ImpersonationConfig,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	rc := &RESTClient{
-		httpClient: &http.Client{
+	return &RESTClient{
+		url: c.URL,
+		client: &http.Client{
 			Transport: rt,
 			Timeout:   c.Timeout,
 		},
-		url: u,
-	}
-
-	return rc, nil
+	}, nil
 }
 
 // TODO: Get these methods from a generated client
@@ -216,7 +207,7 @@ func (c *RESTClient) send(ctx context.Context, method string, values []string, i
 		return nil, err
 	}
 
-	res, err := c.httpClient.Do(req)
+	res, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +215,7 @@ func (c *RESTClient) send(ctx context.Context, method string, values []string, i
 	if res.StatusCode != http.StatusOK {
 		return nil, &runtime.HTTPStatusError{
 			HTTPStatus: res.StatusCode,
-			Err:        err,
+			Err:        errors.New(res.Status),
 		}
 	}
 

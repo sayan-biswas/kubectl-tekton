@@ -19,8 +19,9 @@ kubectl krew install test/tekton
 
 | Name                     | Group  | Default | Description                            |
 |--------------------------|--------|---------|----------------------------------------|
-| host                     | client |         | Host address for the client to connect |
 | client-type              | client | REST    | Type of client can be GRPC or REST     |
+| host                     | client |         | Host address for the client to connect |
+| api-path                 | client |         | API path to add to request             |
 | insecure-skip-tls-verify | client | false   | Skip host name verification            |
 | timeout                  | client | 1m      | Client context timeout                 |
 | certificate-authority    | tls    |         | CA file path to use                    |

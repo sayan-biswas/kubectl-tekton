@@ -26,24 +26,23 @@ func NewGRPCClient(c *Config) (Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
-	u, err := url.Parse(c.Host)
-	if err != nil {
-		return nil, err
+	if c.Timeout == 0 {
+		ctx = context.Background()
 	}
 
-	if u.Port() == "" {
-		switch u.Scheme {
+	if c.URL.Port() == "" {
+		switch c.URL.Scheme {
 		case "https":
-			u.Host = u.Host + ":443"
+			c.URL.Host = c.URL.Host + ":443"
 		case "http":
-			u.Host = u.Host + ":80"
+			c.URL.Host = c.URL.Host + ":80"
 		default:
 			return nil, errors.New("port or scheme missing in host")
 		}
 	}
 
 	tc := insecure.NewCredentials()
-	if c.TLSConfig != nil && u.Scheme == "https" {
+	if c.URL.Scheme == "https" {
 		tls, err := c.ClientTLSConfig()
 		if err != nil {
 			return nil, err
@@ -54,10 +53,10 @@ func NewGRPCClient(c *Config) (Client, error) {
 	cos := []grpc.CallOption{
 		grpc.PerRPCCredentials(&Credentials{
 			TokenSource: transport.NewCachedTokenSource(oauth2.StaticTokenSource(&oauth2.Token{
-				AccessToken: c.Token,
+				AccessToken: c.Transport.BearerToken,
 			})),
-			ImpersonationConfig:   c.ImpersonationConfig,
-			SkipTransportSecurity: u.Scheme != "https",
+			ImpersonationConfig:   &c.Transport.Impersonate,
+			SkipTransportSecurity: c.URL.Scheme != "https",
 		}),
 	}
 
@@ -66,7 +65,7 @@ func NewGRPCClient(c *Config) (Client, error) {
 		grpc.WithTransportCredentials(tc),
 	}
 
-	clientConn, err := grpc.DialContext(ctx, u.Host, dos...)
+	clientConn, err := grpc.DialContext(ctx, c.URL.Host, dos...)
 	if err != nil {
 		return nil, err
 	}
@@ -79,18 +78,18 @@ func NewGRPCClient(c *Config) (Client, error) {
 
 func (c *Config) ClientTLSConfig() (*tls.Config, error) {
 	tc := &tls.Config{
-		InsecureSkipVerify: c.TLSConfig.Insecure,
+		InsecureSkipVerify: c.Transport.TLS.Insecure,
 	}
 
-	if c.TLSConfig.CertFile != "" && c.TLSConfig.KeyFile != "" {
-		keyPair, err := tls.LoadX509KeyPair(c.TLSConfig.CertFile, c.TLSConfig.KeyFile)
+	if c.Transport.TLS.CertFile != "" && c.Transport.TLS.KeyFile != "" {
+		keyPair, err := tls.LoadX509KeyPair(c.Transport.TLS.CertFile, c.Transport.TLS.KeyFile)
 		if err != nil {
 			return nil, fmt.Errorf("could not load client key pair: %v", err)
 		}
 		tc.Certificates = []tls.Certificate{keyPair}
-	} else if c.TLSConfig.CAFile != "" {
+	} else if c.Transport.TLS.CAFile != "" {
 		cp := x509.NewCertPool()
-		ca, err := os.ReadFile(c.TLSConfig.CAFile)
+		ca, err := os.ReadFile(c.Transport.TLS.CAFile)
 		if err != nil {
 			return nil, fmt.Errorf("could not read CA certificate: %v", err)
 		}

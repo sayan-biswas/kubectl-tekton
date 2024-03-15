@@ -10,7 +10,7 @@ import (
 )
 
 // TODO: remove this hard coding.
-const clientVersion = "v0.1.0"
+const clientVersion = "v0.1.1"
 const serverVersion = "v0.9.0"
 
 var (

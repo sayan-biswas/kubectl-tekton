@@ -1,21 +1,17 @@
 package config
 
 import (
-	"context"
+	"encoding/json"
 	"errors"
 	"github.com/AlecAivazis/survey/v2"
-	jsoniter "github.com/json-iterator/go"
-	v1 "github.com/openshift/api/route/v1"
-	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 	"github.com/sayan-biswas/kubectl-tekton/internal/results/client"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/client-go/transport"
 	"k8s.io/kubectl/pkg/cmd/util"
+	"path"
 	"reflect"
 	"strconv"
 	"strings"
@@ -24,7 +20,7 @@ import (
 
 type Config interface {
 	Get() *client.Config
-	RawConfig() runtime.Object
+	GetObject() runtime.Object
 	Set(data map[string]*string, prompt bool) error
 	Reset() error
 }
@@ -40,6 +36,10 @@ type config struct {
 const (
 	ServiceLabel  string = "app.kubernetes.io/name=tekton-results-api"
 	ExtensionName string = "tekton-results"
+	Group         string = "results.tekton.dev"
+	Version       string = "v1alpha2"
+	Kind          string = "Client"
+	Path          string = "apis"
 )
 
 func NewConfig(factory util.Factory) (Config, error) {
@@ -67,23 +67,14 @@ func NewConfig(factory util.Factory) (Config, error) {
 		return nil, err
 	}
 
-	if c.Extension == nil {
-		c.SetVersion()
-		if err := c.Set(nil, true); err != nil {
-			return nil, err
-		}
-	}
-
-	c.LoadClientConfig()
-
-	return c, nil
+	return c, c.LoadClientConfig()
 }
 
 func (c *config) Get() *client.Config {
 	return c.ClientConfig
 }
 
-func (c *config) RawConfig() runtime.Object {
+func (c *config) GetObject() runtime.Object {
 	return c.Extension
 }
 
@@ -100,14 +91,19 @@ func (c *config) LoadExtension() error {
 	}
 	c.Extension = new(Extension)
 	e := cc.Extensions[ExtensionName]
-	return jsoniter.Unmarshal(e.(*runtime.Unknown).Raw, c.Extension)
+	if e == nil {
+		c.SetVersion()
+		return c.Set(nil, false)
+	}
+	return json.Unmarshal(e.(*runtime.Unknown).Raw, c.Extension)
 }
 
 func (c *config) SetVersion() {
-	c.Extension.TypeMeta = runtime.TypeMeta{
-		APIVersion: "v1alpha1",
-		Kind:       "Client",
-	}
+	c.Extension.TypeMeta.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   Group,
+		Version: Version,
+		Kind:    Kind,
+	})
 }
 
 func (c *config) Set(data map[string]*string, prompt bool) error {
@@ -161,55 +157,75 @@ func (c *config) Set(data map[string]*string, prompt bool) error {
 	return c.Persist()
 }
 
-func (c *config) LoadClientConfig() {
-	ic := transport.ImpersonationConfig(c.RESTConfig.Impersonate)
-	c.ClientConfig = &client.Config{
-		ClientType:          client.REST,
-		Host:                c.RESTConfig.Host,
-		ImpersonationConfig: &ic,
-		Timeout:             c.RESTConfig.Timeout,
-		Token:               c.RESTConfig.BearerToken,
-		TLSConfig: &transport.TLSConfig{
-			Insecure:   c.RESTConfig.Insecure,
-			CAFile:     c.RESTConfig.CAFile,
-			CertFile:   c.RESTConfig.CertFile,
-			KeyFile:    c.RESTConfig.KeyFile,
-			ServerName: c.RESTConfig.ServerName,
-		},
-	}
+func (c *config) LoadClientConfig() error {
+	rc := rest.CopyConfig(c.RESTConfig)
+
+	gv := c.Extension.TypeMeta.GroupVersionKind().GroupVersion()
+	rc.GroupVersion = &gv
 
 	if c.Extension.Host != "" {
-		c.ClientConfig.Host = c.Extension.Host
+		rc.Host = c.Extension.Host
+	}
+
+	if c.Extension.APIPath != "" {
+		rc.APIPath = c.Extension.APIPath
 	}
 
 	if c.Extension.Token != "" {
-		c.ClientConfig.Token = c.Extension.Token
+		rc.BearerToken = c.Extension.Token
+	}
+
+	if c.Extension.TLSServerName != "" {
+		rc.TLSClientConfig.ServerName = c.Extension.TLSServerName
+	}
+
+	if i, err := strconv.ParseBool(c.Extension.InsecureSkipTLSVerify); err == nil {
+		if i {
+			rc.TLSClientConfig = rest.TLSClientConfig{}
+		}
+		rc.Insecure = i
 	}
 
 	if d, err := time.ParseDuration(c.Extension.Timeout); err != nil {
-		c.ClientConfig.Timeout = d
+		rc.Timeout = d
 	}
 
 	if c.Extension.Impersonate != "" {
-		c.ClientConfig.ImpersonationConfig = &transport.ImpersonationConfig{
+		rc.Impersonate = rest.ImpersonationConfig{
 			UserName: c.Extension.Impersonate,
 			UID:      c.Extension.ImpersonateUID,
 			Groups:   strings.Split(c.Extension.ImpersonateGroups, ","),
 		}
 	}
 
-	if i, err := strconv.ParseBool(c.Extension.InsecureSkipTLSVerify); err == nil {
-		c.ClientConfig.TLSConfig.Insecure = i
-	}
-
-	if c.Extension.CertificateAuthority != "" || c.Extension.ClientCertificate != "" {
-		c.ClientConfig.TLSConfig = &transport.TLSConfig{
-			CAFile:     c.Extension.CertificateAuthority,
-			CertFile:   c.Extension.ClientCertificate,
-			KeyFile:    c.Extension.ClientKey,
-			ServerName: c.Extension.TLSServerName,
+	if c.Extension.CertificateAuthority != "" || c.Extension.ClientCertificate != "" || c.Extension.ClientKey != "" {
+		rc.TLSClientConfig = rest.TLSClientConfig{
+			CAFile:   c.Extension.CertificateAuthority,
+			CertFile: c.Extension.ClientCertificate,
+			KeyFile:  c.Extension.ClientKey,
 		}
 	}
+
+	tc, err := rc.TransportConfig()
+	if err != nil {
+		return err
+	}
+
+	rc.APIPath = path.Join(rc.APIPath, Path)
+	u, p, err := rest.DefaultServerUrlFor(rc)
+	if err != nil {
+		return err
+	}
+	u.Path = p
+
+	c.ClientConfig = &client.Config{
+		Transport:  tc,
+		URL:        u,
+		Timeout:    c.RESTConfig.Timeout,
+		ClientType: c.Extension.ClientType,
+	}
+
+	return nil
 }
 
 func (c *config) CallMethod(name string) any {
@@ -266,7 +282,7 @@ func (c *config) InsecureSkipTLSVerify() any {
 }
 
 func (c *config) Host() any {
-	routes, err := c.routes()
+	routes, err := getRoutes(c.RESTConfig)
 	if err != nil {
 		return err
 	}
@@ -280,53 +296,4 @@ func (c *config) Host() any {
 		hosts = append(hosts, host)
 	}
 	return hosts
-}
-
-func (c *config) routes() ([]*v1.Route, error) {
-	coreV1Client, err := corev1.NewForConfig(c.RESTConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	routeV1Client, err := routev1.NewForConfig(c.RESTConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	ctx := context.Background()
-
-	serviceList, err := coreV1Client.
-		Services("").
-		List(ctx, metav1.ListOptions{
-			LabelSelector: ServiceLabel,
-		})
-	if err != nil {
-		return nil, err
-	}
-	if len(serviceList.Items) == 0 {
-		return nil, errors.New("services for tekton results not found, try manual configuration")
-	}
-
-	var routes []*v1.Route
-	for _, service := range serviceList.Items {
-		routeList, err := routeV1Client.Routes(service.Namespace).List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return nil, err
-		}
-		if len(routeList.Items) == 0 {
-			return nil, errors.New("routes for tekton results not found, try manual configuration")
-		}
-
-		for _, route := range routeList.Items {
-			if route.Spec.To.Name == service.Name {
-				port := route.Spec.Port.TargetPort
-				for _, p := range service.Spec.Ports {
-					if p.Port == port.IntVal || p.Name == port.StrVal {
-						routes = append(routes, &route)
-					}
-				}
-			}
-		}
-	}
-	return routes, nil
 }
