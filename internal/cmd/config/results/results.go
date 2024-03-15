@@ -89,7 +89,7 @@ func (o *Options) Run(_ *cobra.Command, args []string) (err error) {
 
 	switch {
 	case o.View:
-		return o.PrinterFunc(o.Config.RawConfig(), o.IOStreams.Out)
+		return o.PrinterFunc(o.Config.GetObject(), o.IOStreams.Out)
 	case o.Reset:
 		return o.Config.Reset()
 	case len(args) == 0:

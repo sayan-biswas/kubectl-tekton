@@ -6,6 +6,7 @@ import (
 	resultsv1alpha2 "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/status"
 	"k8s.io/client-go/transport"
+	"net/url"
 	"time"
 )
 
@@ -20,34 +21,20 @@ type Client interface {
 }
 
 type Config struct {
-	ClientType          string
-	Host                string
-	ImpersonationConfig *transport.ImpersonationConfig
-	Timeout             time.Duration
-	TLSConfig           *transport.TLSConfig
-	Token               string
+	ClientType string
+	URL        *url.URL
+	Timeout    time.Duration
+	Transport  *transport.Config
 }
 
-func NewClient(c *Config) (Client, error) {
-	c.SetDefault()
-
-	switch c.ClientType {
+func NewClient(config *Config) (Client, error) {
+	switch config.ClientType {
 	case GRPC:
-		return NewGRPCClient(c)
+		return NewGRPCClient(config)
 	case REST:
-		return NewRESTClient(c)
+		return NewRESTClient(config)
 	default:
-		return nil, errors.New("invalid client type")
-	}
-}
-
-func (c *Config) SetDefault() {
-	if c.ClientType == "" {
-		c.ClientType = REST
-	}
-
-	if c.Timeout == 0 {
-		c.Timeout = time.Minute
+		return NewRESTClient(config)
 	}
 }
 
