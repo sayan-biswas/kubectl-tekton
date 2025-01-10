@@ -3,7 +3,7 @@ package action
 import (
 	"context"
 	"github.com/sayan-biswas/kubectl-tekton/internal/results/client"
-	results "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	results "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 )
 
 func Log(c client.Client, o *Options) ([]byte, error) {

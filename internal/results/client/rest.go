@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	v1alpha2 "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	v1alpha3 "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -145,7 +146,7 @@ func (c logsGetLogClient) Recv() (*httpbody.HttpBody, error) {
 	}, nil
 }
 
-func (c *RESTClient) GetLog(ctx context.Context, in *v1alpha2.GetLogRequest, _ ...grpc.CallOption) (v1alpha2.Logs_GetLogClient, error) {
+func (c *RESTClient) GetLog(ctx context.Context, in *v1alpha3.GetLogRequest, _ ...grpc.CallOption) (v1alpha2.Logs_GetLogClient, error) {
 	b, err := c.send(ctx, http.MethodGet, []string{in.Name}, in)
 	if err != nil {
 		return nil, err
@@ -158,22 +159,26 @@ func (c *RESTClient) GetLog(ctx context.Context, in *v1alpha2.GetLogRequest, _ .
 	return out, nil
 }
 
+// ListLogs Functionality not supported now
 func (c *RESTClient) ListLogs(ctx context.Context, in *v1alpha2.ListRecordsRequest, _ ...grpc.CallOption) (*v1alpha2.ListRecordsResponse, error) {
-	out := &v1alpha2.ListRecordsResponse{}
-	b, err := c.send(ctx, http.MethodGet, []string{in.Parent, "records"}, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, protojson.Unmarshal(b, out)
+	//out := &v1alpha2.ListRecordsResponse{}
+	//b, err := c.send(ctx, http.MethodGet, []string{in.Parent, "records"}, in)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//return out, protojson.Unmarshal(b, out)
+	panic("This is not supported")
 }
 
+// DeleteLog Functionality not supported now
 func (c *RESTClient) DeleteLog(ctx context.Context, in *v1alpha2.DeleteLogRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := &emptypb.Empty{}
-	b, err := c.send(ctx, http.MethodDelete, []string{in.Name}, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, protojson.Unmarshal(b, out)
+	//out := &emptypb.Empty{}
+	//b, err := c.send(ctx, http.MethodDelete, []string{in.Name}, in)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//return out, protojson.Unmarshal(b, out)
+	panic("This is not supported")
 }
 
 func (c *RESTClient) UpdateLog(_ context.Context, _ ...grpc.CallOption) (v1alpha2.Logs_UpdateLogClient, error) {
