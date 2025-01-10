@@ -10,8 +10,8 @@ import (
 )
 
 // TODO: remove this hard coding.
-const clientVersion = "v0.1.1"
-const serverVersion = "v0.9.0"
+const clientVersion = "v0.1.2"
+const serverVersion = "v0.13.2"
 
 var (
 	short = i18n.T("Print the client and server version information")

@@ -19,6 +19,7 @@ import (
 	"k8s.io/kubectl/pkg/scheme"
 	"k8s.io/kubectl/pkg/util/i18n"
 	"k8s.io/kubectl/pkg/util/templates"
+	"strings"
 )
 
 type Options struct {
@@ -131,7 +132,7 @@ func (o *Options) Run(_ *cobra.Command, _ []string) error {
 	gvk, err := o.RESTMapper.KindFor(gvr)
 
 	// TODO: remove after tekton results migration to V1 APIs
-	gvk.Version = "v1beta1"
+	//gvk.Version = "v1beta1"
 
 	v, k := gvk.ToAPIVersionAndKind()
 
@@ -164,10 +165,12 @@ func (o *Options) Run(_ *cobra.Command, _ []string) error {
 		break
 	}
 
-	a, ok := ul.Items[0].GetAnnotations()[annotation.Log]
+	a, ok := ul.Items[0].GetAnnotations()[annotation.Record]
 	if !ok || a == "" {
 		return printers.WriteEscaped(o.IOStreams.Out, "No logs found")
 	}
+	// with v1alpha3 API, end point has changed from records to logs
+	a = strings.Replace(a, "records", "logs", -1)
 	log, err := action.Log(o.Client, &action.Options{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: a,

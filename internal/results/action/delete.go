@@ -52,15 +52,6 @@ func Delete(c client.Client, o *Options) error {
 		}
 	}
 
-	// Delete log metadata and data
-	if a, ok := o.Annotations[annotation.Log]; ok {
-		if _, err := c.DeleteLog(context.Background(), &results.DeleteLogRequest{
-			Name: a,
-		}); err != nil && client.Status(err) != http.StatusNotFound {
-			return err
-		}
-	}
-
 	//Delete record entries
 	if a, ok := o.Annotations[annotation.Record]; ok {
 		if _, err := c.DeleteRecord(context.Background(), &results.DeleteRecordRequest{

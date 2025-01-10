@@ -190,7 +190,7 @@ func (o *Options) Run(_ *cobra.Command, _ []string) error {
 	}
 
 	// TODO: Version override is not required after tekton results migration to V1 APIs
-	gvk.Version = "v1beta1"
+	//gvk.Version = "v1beta1"
 
 	v, k := gvk.ToAPIVersionAndKind()
 
@@ -249,7 +249,6 @@ func (o *Options) Run(_ *cobra.Command, _ []string) error {
 			}
 		}
 	}
-
 	return nil
 }
 

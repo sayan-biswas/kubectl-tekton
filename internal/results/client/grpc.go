@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	resultsv1alpha2 "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	resultsv1alpha3 "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -17,7 +18,7 @@ import (
 )
 
 type GRPCClient struct {
-	resultsv1alpha2.LogsClient
+	resultsv1alpha3.LogsClient
 	resultsv1alpha2.ResultsClient
 }
 
@@ -71,7 +72,7 @@ func NewGRPCClient(c *Config) (Client, error) {
 	}
 
 	return &GRPCClient{
-		resultsv1alpha2.NewLogsClient(clientConn),
+		resultsv1alpha3.NewLogsClient(clientConn),
 		resultsv1alpha2.NewResultsClient(clientConn),
 	}, nil
 }

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	resultsv1alpha2 "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	resultsv1alpha3 "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 	"google.golang.org/grpc/status"
 	"k8s.io/client-go/transport"
 	"net/url"
@@ -16,7 +17,7 @@ const (
 )
 
 type Client interface {
-	resultsv1alpha2.LogsClient
+	resultsv1alpha3.LogsClient
 	resultsv1alpha2.ResultsClient
 }
 

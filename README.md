@@ -165,10 +165,5 @@ Get TaskRun logs
 kubectl tekton logs tr testtr -n default --uid="436dd41a-fd8a-4a29-b4f3-389b221af5dc"
 ```
 
-### Deleting Resources
 
-Delete all resources with name matching the keyword. All other flags for get are also available for delete.
-Delete command will also delete any child resources matching the `OwnerReferences`.
-```shell
-kubectl tekton delete pr z56b6 -n default
 ```
