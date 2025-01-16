@@ -4,46 +4,46 @@ kind: Plugin
 metadata:
   name: tekton
 spec:
-  version: v0.1.1
+  version: v0.1.2
   platforms:
     - bin: tekton.exe
-      uri: https://github.com/sayan-biswas/kubectl-tekton/releases/download/v0.1.1/tekton-0.1.1-windows-arm64.zip
-      sha256: a98ca3abe1bee3a226ce0b88b0960019fd4d44128fab14255d77c0c0d643d94f
+      uri: https://github.com/sayan-biswas/kubectl-tekton/releases/download/v0.1.2/tekton-0.1.2-windows-arm64.zip
+      sha256: 8bfb0f5a9efd13e78e22fe7f84d3b019cc1837cc6bdc38736872a00e3c38d1c5
       selector:
         matchLabels:
           os: windows
           arch: arm64
     - bin: tekton.exe
-      uri: https://github.com/sayan-biswas/kubectl-tekton/releases/download/v0.1.1/tekton-0.1.1-windows-amd64.zip
-      sha256: 59295cf033bffb4713278fb4a1d7aaf024f2272297a22ba8aab509f86f69a952
+      uri: https://github.com/sayan-biswas/kubectl-tekton/releases/download/v0.1.2/tekton-0.1.2-windows-amd64.zip
+      sha256: f2c73ecceb4e2db37bf380b27c26f95df53e30381883389737eb9a5bad00ac75
       selector:
         matchLabels:
           os: windows
           arch: amd64
     - bin: tekton
-      uri: https://github.com/sayan-biswas/kubectl-tekton/releases/download/v0.1.1/tekton-0.1.1-linux-arm64.tar.gz
-      sha256: ab19aec47e40af8228c1df069fb89b8fb2ef2c60440d8a2792b8c54df8654195
+      uri: https://github.com/sayan-biswas/kubectl-tekton/releases/download/v0.1.2/tekton-0.1.2-linux-arm64.tar.gz
+      sha256: f45427dfe576fc2dabbaa3dabda1599214b49d2efdf534ed922a67ad6e4ea2ae
       selector:
         matchLabels:
           os: linux
           arch: arm64
     - bin: tekton
-      uri: https://github.com/sayan-biswas/kubectl-tekton/releases/download/v0.1.1/tekton-0.1.1-linux-amd64.tar.gz
-      sha256: e5e94bd9ffc71c7f762197e8c1c78510edd51cf36a3bedb66dcfd517677b90fd
+      uri: https://github.com/sayan-biswas/kubectl-tekton/releases/download/v0.1.2/tekton-0.1.2-linux-amd64.tar.gz
+      sha256: 5132cd9ec5ffa92568b1afa8e1e9e222d64fa9b877a7f37026cfbf534d12e5df
       selector:
         matchLabels:
           os: linux
           arch: amd64
     - bin: tekton
-      uri: https://github.com/sayan-biswas/kubectl-tekton/releases/download/v0.1.1/tekton-0.1.1-darwin-arm64.tar.gz
-      sha256: a6b69424aaca03e2e56c251f332c6e15b2632c9eae4173535c95111ccd4660d0
+      uri: https://github.com/sayan-biswas/kubectl-tekton/releases/download/v0.1.2/tekton-0.1.2-darwin-arm64.tar.gz
+      sha256: 3ec800fee6ae1383b0dec11943cc80f36449f26d8685b48699c7cd6a3452303d
       selector:
         matchLabels:
           os: darwin
           arch: arm64
     - bin: tekton
-      uri: https://github.com/sayan-biswas/kubectl-tekton/releases/download/v0.1.1/tekton-0.1.1-darwin-amd64.tar.gz
-      sha256: 0ff82a0208df902c6eba9f34f65c81dbc0ab95d3f2048bbc17177774f962db51
+      uri: https://github.com/sayan-biswas/kubectl-tekton/releases/download/v0.1.2/tekton-0.1.2-darwin-amd64.tar.gz
+      sha256: 3d1c9cd8de17229dea397183c06e1d633b8710d0c238b5308d3614bc22b36873
       selector:
         matchLabels:
           os: darwin
