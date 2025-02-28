@@ -38,6 +38,7 @@ type Options struct {
 	Name            string
 	UID             string
 	Limit           int32
+	SinglePage      bool
 	Labels          string
 	Annotations     string
 	Finalizers      string
@@ -122,6 +123,7 @@ func Command(s *genericiooptions.IOStreams, f util.Factory) *cobra.Command {
 	o.PrintFlags.AddFlags(c)
 
 	c.Flags().Int32VarP(&o.Limit, "limit", "", 10, "Limit number or resource")
+	c.Flags().BoolVar(&o.SinglePage, "single-page", false, "Output first page of results and immediately exit")
 	c.Flags().StringVarP(&o.UID, "uid", "", "", "UID to select unique item")
 	c.Flags().StringVarP(&o.Labels, "selector", "", "", "Filter items by labels")
 	c.Flags().StringVarP(&o.Labels, "labels", "", "", "Filter items by labels")
@@ -237,6 +239,9 @@ func (o *Options) Run(_ *cobra.Command, _ []string) error {
 		}
 		if err := printer.PrintList(o.IOStreams.Out, l); err != nil {
 			return err
+		}
+		if o.SinglePage {
+			break
 		}
 		if nextPage = l.NextPageToken != ""; nextPage {
 			opts.ListOptions.Continue = l.NextPageToken
